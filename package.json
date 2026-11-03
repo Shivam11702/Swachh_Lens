@@ -1,0 +1,14 @@
+{
+  "name": "swachhlens",
+  "version": "1.0.0",
+  "description": "SwachhLens is a prototype AI-powered waste response decision support system for urban sanitation.",
+  "scripts": {
+    "dev": "concurrently \"npm --prefix frontend run dev\" \"npm --prefix backend run dev\"",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix backend run dev",
+    "install:all": "npm --prefix frontend install && npm --prefix backend install && npm --prefix mobile install"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

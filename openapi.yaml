@@ -1,0 +1,313 @@
+openapi: 3.0.3
+info:
+  title: SwachhLens Waste Response API
+  description: API for capturing citizen waste reports, retrieving AI assessments, and managing cleanup assignments.
+  version: 0.1.0
+servers:
+  - url: http://localhost:8000
+paths:
+  /reports:
+    post:
+      summary: Submit a new waste report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportCreate'
+      responses:
+        '201':
+          description: Report created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+  /reports/{report_id}:
+    get:
+      summary: Get report details by ID
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Report details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '404':
+          description: Report not found
+  /reports/{report_id}/action:
+    post:
+      summary: Assign or update report action
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportAction'
+      responses:
+        '200':
+          description: Action updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+  /hotspots:
+    get:
+      summary: Query active waste hotspots
+      parameters:
+        - name: bbox
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Bounding box as minLon,minLat,maxLon,maxLat
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Hotspot list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HotspotSummary'
+  /teams:
+    get:
+      summary: List cleanup teams
+      responses:
+        '200':
+          description: Team list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Team'
+  /vehicles:
+    get:
+      summary: List available vehicles
+      responses:
+        '200':
+          description: Vehicle list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Vehicle'
+  /models/predict:
+    post:
+      summary: Internal model inference endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                image_uri:
+                  type: string
+                gps:
+                  $ref: '#/components/schemas/GPSLocation'
+      responses:
+        '200':
+          description: Inference results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MLResult'
+components:
+  schemas:
+    GPSLocation:
+      type: object
+      properties:
+        lat:
+          type: number
+        lon:
+          type: number
+      required:
+        - lat
+        - lon
+    ReportCreate:
+      type: object
+      properties:
+        user_id:
+          type: string
+          nullable: true
+        photos:
+          type: array
+          items:
+            type: string
+          description: URLs or temporary file references for uploaded photos
+        videos:
+          type: array
+          items:
+            type: string
+          description: Optional video URLs
+        gps:
+          $ref: '#/components/schemas/GPSLocation'
+        timestamp:
+          type: string
+          format: date-time
+        comment:
+          type: string
+      required:
+        - photos
+        - gps
+        - timestamp
+    ReportAction:
+      type: object
+      properties:
+        team_id:
+          type: string
+        vehicle_id:
+          type: string
+        scheduled_time:
+          type: string
+          format: date-time
+        note:
+          type: string
+      required:
+        - team_id
+        - vehicle_id
+    ClassificationLabel:
+      type: object
+      properties:
+        label:
+          type: string
+        confidence:
+          type: number
+          format: float
+    MLResult:
+      type: object
+      properties:
+        classification:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClassificationLabel'
+        volume_bin:
+          type: string
+          enum: [small, medium, large, very_large]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        triage_score:
+          type: number
+          format: float
+        suggested_team_id:
+          type: string
+          nullable: true
+        suggested_vehicle_type:
+          type: string
+          nullable: true
+        duplicate_of:
+          type: string
+          nullable: true
+    AssignmentDetails:
+      type: object
+      properties:
+        team_id:
+          type: string
+        vehicle_id:
+          type: string
+        scheduled_time:
+          type: string
+          format: date-time
+        note:
+          type: string
+    ReportResponse:
+      type: object
+      properties:
+        report_id:
+          type: string
+        user_id:
+          type: string
+          nullable: true
+        photos:
+          type: array
+          items:
+            type: string
+        videos:
+          type: array
+          items:
+            type: string
+        gps:
+          $ref: '#/components/schemas/GPSLocation'
+        timestamp:
+          type: string
+          format: date-time
+        comment:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, processing, ready, assigned, closed]
+        ml_results:
+          $ref: '#/components/schemas/MLResult'
+        assignment:
+          $ref: '#/components/schemas/AssignmentDetails'
+    HotspotSummary:
+      type: object
+      properties:
+        bbox:
+          type: array
+          items:
+            type: number
+        report_count:
+          type: integer
+        average_priority:
+          type: string
+        issue_types:
+          type: array
+          items:
+            type: string
+    Team:
+      type: object
+      properties:
+        team_id:
+          type: string
+        name:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        vehicle_types:
+          type: array
+          items:
+            type: string
+        available:
+          type: boolean
+    Vehicle:
+      type: object
+      properties:
+        vehicle_id:
+          type: string
+        type:
+          type: string
+        capacity_m3:
+          type: number
+        available:
+          type: boolean
